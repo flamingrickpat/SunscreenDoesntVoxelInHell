@@ -136,6 +136,9 @@
     <Image Include="small.ico" />
     <Image Include="SunscreenDoesntVoxelInHell.ico" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Noise.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -13,7 +13,7 @@ using namespace DirectX;
 
 #include <cstdlib>  // For rand()
 #include <cmath>    // For sin, cos, etc.
-
+#include "Noise.h"
 
 
 // Vertex structure
@@ -27,22 +27,22 @@ std::vector<UINT> vecIndices;
 int indexCnt = 0;
 
 
-void addCube(float x, float y, float z) {
+void addCube(float x, float y, float z, XMFLOAT4 color) {
     auto start = vecVerts.size();
 
 
     Vertex tmp[] = {
         // Front face
-        {{-0.5f, -0.5f, -0.5f}, {0.5f, 0.0f, 0.0f, 0.5f}}, // Bottom-left
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 0.5f, 0.0f, 0.5f}},  // Bottom-right
-        {{-0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 0.5f, 0.5f}},  // Top-left
-        {{0.5f, 0.5f, -0.5f}, {0.5f, 0.5f, 0.0f, 0.5f}},   // Top-right
+        {{-0.5f, -0.5f, -0.5f}, color}, // Bottom-left
+        {{0.5f, -0.5f, -0.5f}, color},  // Bottom-right
+        {{-0.5f, 0.5f, -0.5f}, color},  // Top-left
+        {{0.5f, 0.5f, -0.5f}, color},   // Top-right
 
         // Back face
-        {{-0.5f, -0.5f, 0.5f}, {0.5f, 0.0f, 0.5f, 0.5f}},  // Bottom-left
-        {{0.5f, -0.5f, 0.5f}, {0.0f, 0.5f, 0.5f, 0.5f}},   // Bottom-right
-        {{-0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f, 0.5f}},   // Top-left
-        {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 0.0f, 0.5f}},    // Top-right
+        {{-0.5f, -0.5f, 0.5f}, color},  // Bottom-left
+        {{0.5f, -0.5f, 0.5f}, color},   // Bottom-right
+        {{-0.5f, 0.5f, 0.5f}, color},   // Top-left
+        {{0.5f, 0.5f, 0.5f}, color},    // Top-right
     };
 
     for (int i = 0; i < 8; i++) {
@@ -95,6 +95,11 @@ void addCube(float x, float y, float z) {
 
 }
 
+float randrange(float min, float max)
+{
+    float r = (float)rand() / (float)RAND_MAX;
+    return min + r * (max - min);
+}
 
 float noise3D(float x, float y, float z) {
     // Simple 3D noise using random numbers
@@ -114,12 +119,56 @@ void generateAsteroidField(float centerX, float centerY, float centerZ,
         float y = centerY + r * sinf(phi) * sinf(theta);
         float z = centerZ + r * cosf(phi);
 
+        
+
         // Add random cubes around the position to form an asteroid-like shape
         for (int j = 0; j < 10; j++) { // 10 cubes per asteroid
             float offsetX = round((static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f);
             float offsetY = round((static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f);
             float offsetZ = round((static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f);
-            addCube(x + offsetX, y + offsetY, z + offsetZ);
+            float col = randrange(0.1, 0.2);
+            XMFLOAT4 color(col, col, col, 1);
+            addCube(x + offsetX, y + offsetY, z + offsetZ, color);
+        }
+    }
+}
+
+void generateMinecraftLandscape(float centerX, float centerY, float centerZ,
+    float width, float depth, float maxHeight, int numBoulders) {
+    // Generate terrain
+    for (float x = centerX - width / 2; x <= centerX + width / 2; x++) {
+        for (float z = centerZ - depth / 2; z <= centerZ + depth / 2; z++) {
+            // Use noise function to determine surface height
+            float noise = noise2D(x, z); // Assuming a noise function like Perlin noise
+            int surfaceY = static_cast<int>(centerY + maxHeight * noise); // Convert height to integer
+
+            // Add grass block at the surface
+            XMFLOAT4 grassColor(0.2f, 0.8f, 0.2f, 1.0f); // Green color for grass
+            addCube(static_cast<int>(x), surfaceY, static_cast<int>(z), grassColor);
+
+            // Add stone blocks below the grass down to y = 0
+            XMFLOAT4 stoneColor(0.5f, 0.5f, 0.5f, 1.0f); // Grey color for stone
+            for (int y = -maxHeight; y < surfaceY; y++) {
+                addCube(static_cast<int>(x), y, static_cast<int>(z), stoneColor);
+            }
+        }
+    }
+
+    // Add boulders
+    for (int i = 0; i < numBoulders; i++) {
+        // Generate random position for each boulder within terrain bounds
+        int boulderX = static_cast<int>(centerX + (static_cast<float>(rand()) / RAND_MAX - 0.5f) * width);
+        int boulderZ = static_cast<int>(centerZ + (static_cast<float>(rand()) / RAND_MAX - 0.5f) * depth);
+        int boulderY = static_cast<int>(centerY + maxHeight * noise2D(boulderX, boulderZ));
+
+        // Create a boulder using multiple grey blocks
+        for (int j = 0; j < 10; j++) { // 10 blocks per boulder
+            int offsetX = static_cast<int>(round((static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f));
+            int offsetY = static_cast<int>(round((static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f));
+            int offsetZ = static_cast<int>(round((static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f));
+
+            XMFLOAT4 greyColor(0.5f, 0.5f, 0.5f, 1.0f); // Grey color for boulders
+            addCube(boulderX + offsetX, boulderY + offsetY, boulderZ + offsetZ, greyColor);
         }
     }
 }
@@ -354,6 +403,14 @@ void HandleInput() {
         g_cameraPosition.x += cosf(g_cameraRotation.y) * g_cameraSpeed;
         g_cameraPosition.z -= sinf(g_cameraRotation.y) * g_cameraSpeed;
     }
+
+    if (GetAsyncKeyState(' ') & 0x8000) { // Forward
+        g_cameraPosition.y += g_cameraSpeed;
+    }
+
+    if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) { // Forward
+        g_cameraPosition.y -= g_cameraSpeed;
+    }
 }
 
 void HandleMouse() {
@@ -390,6 +447,8 @@ void InitBuffers() {
 
 
     generateAsteroidField(0.0f, 0.0f, 0.0f, 500.0f, 100); // 50 asteroids in a 100-unit radius field
+    generateMinecraftLandscape(0.0f, 0.0f, 0.0f, 200, 200, 32, 66);
+
 
     // Vertex buffer
     D3D11_BUFFER_DESC vertexBufferDesc = {};
@@ -431,7 +490,7 @@ void Render() {
     static float angle = 0.0f;
     angle += 0.01f;
 
-    XMMATRIX world = XMMatrixRotationY(angle);
+    XMMATRIX world = XMMatrixRotationY(0);
     XMMATRIX view = XMMatrixLookAtLH(
         XMVectorSet(g_cameraPosition.x, g_cameraPosition.y, g_cameraPosition.z, 0.0f),
         XMVectorSet(
@@ -440,7 +499,7 @@ void Render() {
             g_cameraPosition.z + cosf(g_cameraRotation.x) * cosf(g_cameraRotation.y),
             0.0f),
         XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
-    XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, 800.0f / 600.0f, 0.1f, 100.0f);
+    XMMATRIX proj = XMMatrixPerspectiveFovLH(XM_PIDIV4, 800.0f / 600.0f, 0.1f, 100000.0f);
     XMMATRIX worldViewProj = world * view * proj;
 
     ConstantBuffer cb = { XMMatrixTranspose(worldViewProj) };
